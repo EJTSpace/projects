@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--CONTENTS
+ 
+Style Tags
+Declaring Global Variables
+Set and Get HighScores from LocalStorage
+GameSetup function to setup the mine array, place the mines and the numbers
+End of GameSetup function
+Changes Font colour function depending on number of mines
+Uncover function called by each button to check if it is a mine
+HTML container and initial items
+Adding in all the tiles function using javascript
+Function to set the container rows and columns
+Adding event listener for all buttons
+Initial uncover of edge cells function to start the game 
+StartGame function where GameOver,messagebar is reset
+Change difficulty function
+Adding highScore to the score array
+CheckWinner if player has won and logs time taken
+
+Ideas to add
+a function to initially uncover more blank cells from the edge to stop the player having to do this
+
+-->
+<title>Minesweeper</title>
+<style>
+#container {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  gap: 0px 0px;
+  width: 600px;
+  border: thick ridge grey;
+  box-sizing: border-box;
+  
+}
+
+button {
+  background-color: #f1f1f1;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 20px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+#startbar:hover {
+  background-color: #d1d1d1;
+}
+
+#EDifficulty:hover {
+  background-color: #d1d1d1;
+}
+
+#BDifficulty:hover {
+  background-color: #d1d1d1;
+}
+
+#IDifficulty:hover {
+  background-color: #d1d1d1;
+}
+
+#EDifficulty {
+  padding: 10px 5px;
+}
+
+#BDifficulty {
+  padding: 10px 5px;
+}
+
+#IDifficulty {
+  padding: 10px 5px;
+}
+
+#messagebar {
+  grid-column: 1 / span 9;
+  grid-row: 11 / span 1;
+  background-color: #f1f1f1;
+  color: black;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 20px;
+  text-align: center;
+}
+
+#startbar {
+  grid-column: 4 / span 3;
+  grid-row: 1 / span 1;
+  background-color: #f1f1f1;
+  color: black;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 20px;
+  text-align: center;
+}
+
+#minesbar {
+  grid-column: 1 / span 3;
+  grid-row: 1 / span 1;
+  background-color: #f1f1f1;
+  color: black;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 20px;
+  text-align: center;
+}
+
+#fillerbar {
+  grid-column: 7 / span 3;
+  grid-row: 1 / span 1;
+  background-color: #f1f1f1;
+  color: #f1f1f1;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 20px;
+  text-align: center;
+}
+
+#highscorebar {
+  grid-column: 10 / span 2;
+  grid-row: 1 / span 11;
+  background-color: #f1f1f1;
+  color: black;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 20px;
+  text-align: center;
+}
+
+#ChangeDifficultyHead {
+  grid-column: 10 / span 2;
+  background-color: #f1f1f1;
+  color: black;
+  border: 1px solid black;
+  padding: 10px 15px;
+  font-size: 16px;
+  text-align: center;
+}
+
+</style>
+
+<script>
+
+// Declaring Global Variables
+let GameOver = false;
+
+let NoofRows = 0;
+let NoofColumns = 0;
+let MinesArray2D = [];
+
+let MinesToFind = 0;
+let MinesRemaining = 0;
+
+let DifficultySelected = 0;
+
+const DifficultyOptions = {
+  Beginner: 0,
+  Intermediate: 1,
+  Expert: 2,
+};
+
+const DifficultyLevels = [
+  {
+    Name:'Beginner',
+    Code: 'B',
+    HighScores: [],
+  },
+  {
+    Name:'Intermediate',
+    Code: 'I',
+    HighScores: [],
+  },
+  {
+    Name:'Expert',
+    Code: 'E',
+    HighScores: [],
+  },
+];
+
+let StartTime = performance.now();
+
+
+//Set and Get HighScores from LocalStorage
+function SetHighScoreStore () {
+  let ArrayLength = DifficultyLevels[DifficultySelected].HighScores.length;  
+  for (let j = 0; j < ArrayLength; j++) {
+    localStorage.setItem(DifficultyLevels[DifficultySelected].Code + "Score" + j, DifficultyLevels[DifficultySelected].HighScores[j]); 
+  }
+}
+
+function GetHighScoreStore () {
+  for (let j = 0; j < 5; j++) {
+    if (localStorage.getItem(DifficultyLevels[DifficultySelected].Code + "Score" + j) != null) {
+    DifficultyLevels[DifficultySelected].HighScores[j] = localStorage.getItem(DifficultyLevels[DifficultySelected].Code + "Score" + j); 
+    }
+  }
+}
+
+GetHighScoreStore();
+
+
+//GameSetup function to setup the mine array, place the mines and the numbers
+function GameSetup() {
+
+  if (DifficultySelected == DifficultyOptions.Expert) {
+    MinesToFind = 99;
+    MinesRemaining = MinesToFind;
+    NoofRows = 18;
+    NoofColumns = 32;
+  } else if (DifficultySelected == DifficultyOptions.Intermediate) {
+    MinesToFind = 40;
+    MinesRemaining = MinesToFind;
+    NoofRows = 18;
+    NoofColumns = 18;
+  } else {
+    MinesToFind = 10;
+    MinesRemaining = MinesToFind;
+    NoofRows = 11;
+    NoofColumns = 11;
+  }
+
+  StartTime = performance.now();
+  MinesArray2D = [];
+
+  //Resets the mines array to all 0's
+  for (let i = 0; i < NoofRows; i++) {
+    const row = [];
+    for (let j = 0; j < NoofColumns; j++) {
+      row.push(0);
+    }
+    MinesArray2D.push(row);
+  }
+
+
+  //Randomly places the number of mines across the grid
+  let i = 0;
+  while (i < MinesToFind) {
+
+    MinesArray2D[Math.floor(Math.random() * (NoofRows - 2))+1][Math.floor(Math.random() * (NoofColumns - 2))+1] = 9;
+  
+
+    //filter function only used directly below
+    function myFilter(value) {
+      return value > 8;
+    }
+
+    if (i > MinesToFind-2) {
+      const Flattened = MinesArray2D.flat();
+      const Mines = Flattened.filter(myFilter);
+      i = Mines.length;
+    } else {
+      i++;
+    }
+
+  }
+
+
+
+  // loop through to add numbers next to cells with mines
+  
+  const Directions = [
+    [-1, -1], [-1, 0], [-1, 1], // Top-left, Top, Top-right
+    [0, -1],           [0, 1],  // Left,       Right
+    [1, -1], [1, 0], [1, 1]     // Bottom-left, Bottom, Bottom-right
+  ];
+  
+  for (let i = 0; i < NoofRows; i++) {
+    for (let j = 0; j < NoofColumns; j++) {
+      let MinesCount = 0;
+
+      if (MinesArray2D[i][j] != 9){
+
+        for (const [dx, dy] of Directions) {
+          const ni = i + dx;
+          const nj = j + dy;
+          if (ni >= 0 && ni < NoofRows && nj >= 0 && nj < NoofColumns ) {
+            if (MinesArray2D[ni][nj] == 9) {
+            MinesCount++;
+            }
+          }
+        }
+        MinesArray2D[i][j] = MinesCount
+      }
+    }
+  }
+
+console.log(MinesArray2D);
+
+}// End of GameSetup function
+
+GameSetup();
+
+//Changes Font colour function depending on number of mines
+//Used in functions  Uncover(i,j) and UncoverEdges(a,b)
+function ChangeFontColour(Num,ButtonID) {
+
+  switch (Num) {
+  case 0:
+    document.getElementById(ButtonID).style.color = 'DarkGrey';
+    break;
+  case 1:
+    document.getElementById(ButtonID).style.color = 'Blue';
+    break;
+  case 2:
+     document.getElementById(ButtonID).style.color = 'ForestGreen';
+    break;
+  case 3:
+    document.getElementById(ButtonID).style.color = 'Crimson';
+    break;
+  case 4:
+    document.getElementById(ButtonID).style.color = 'DarkBlue';
+    break;
+  case 5:
+    document.getElementById(ButtonID).style.color = 'BlanchedAlmond';
+    break;
+  case 6:
+    document.getElementById(ButtonID).style.color = 'DarkOrchid';
+    break;
+  case 7:
+    document.getElementById(ButtonID).style.color = 'Coral';
+    break;
+  case 8:
+    document.getElementById(ButtonID).style.color = 'Cornsilk';
+    break;
+  }
+}
+
+//Uncover function called by each button to check if it is a mine
+//when left clicked then changes the colour and adds the number if not
+function Uncover(i,j) {
+
+  let ButtonRef = "Button" + i + "," + j;
+  const Element = document.getElementById(ButtonRef);
+  
+
+  if (MinesArray2D[i][j] == 9 && GameOver == false) {
+    document.getElementById(ButtonRef).style.backgroundColor = 'Red';
+    GameOver = true;
+  } else if (GameOver == false && window.getComputedStyle(Element).backgroundColor == 'rgb(241, 241, 241)') {
+   
+    document.getElementById(ButtonRef).style.backgroundColor = 'DarkGrey';
+    document.getElementById(ButtonRef).innerHTML = MinesArray2D[i][j];
+
+    ChangeFontColour(MinesArray2D[i][j],ButtonRef);
+
+  } else if (GameOver == false && window.getComputedStyle(Element).backgroundColor == 'rgb(169, 169, 169)') {
+
+    let MinesCount = 0;
+  
+    const Directions = [
+    [-1, -1], [-1, 0], [-1, 1], // Top-left, Top, Top-right
+    [0, -1],           [0, 1],  // Left,       Right
+    [1, -1], [1, 0], [1, 1]     // Bottom-left, Bottom, Bottom-right
+    ];
+
+    for (const [dx, dy] of Directions) {
+      const ni = i + dx;
+      const nj = j + dy;
+      if (ni >= 0 && ni < NoofRows && nj >= 0 && nj < NoofColumns) {
+        if (document.getElementById("Button" + ni + "," + nj).innerHTML == 'M') {
+        MinesCount++;
+        }
+      }
+    }
+
+    if (document.getElementById(ButtonRef).innerHTML == MinesCount){
+
+      for (const [dx, dy] of Directions) {
+        const ni = i + dx;
+        const nj = j + dy;
+        
+        if (ni >= 0 && ni < NoofRows && nj >= 0 && nj < NoofColumns && document.getElementById("Button" + ni + "," + nj).innerHTML != 'M') {
+          
+          if (MinesArray2D[ni][nj] == 9) {
+            document.getElementById("Button" + ni + "," + nj).style.backgroundColor = 'Red';
+            GameOver = true;
+          } else {
+          document.getElementById("Button" + ni + "," + nj).style.backgroundColor = 'DarkGrey';
+          document.getElementById("Button" + ni + "," + nj).innerHTML = MinesArray2D[ni][nj]; 
+          ChangeFontColour(MinesArray2D[ni][nj],"Button" + ni + "," + nj);
+          }
+        }
+      }   
+    }
+  }
+}
+</script>
+</head>
+
+<body>
+
+<h1>Minesweeper</h1>
+
+<!-- HTML container and initial items -->
+<!-- before the rest are added by the javascript -->
+
+<div id="container">
+
+<div id="minesbar">Mines:</div>
+<button type="button" id="startbar" onclick="StartGame()">Start</button>
+<div id="fillerbar">Filler</div>
+<div id="highscorebar">High Scores</div>
+<div id="ChangeDifficultyHead">Difficulty</div>
+<button type="button" id="BDifficulty" >Beginner</button>
+<button type="button" id="IDifficulty">Intermediate</button>
+<button type="button" id="EDifficulty">Expert</button>
+</div>
+
+<script>
+
+function AddTiles() {
+  //Adding in all the tiles function using javascript
+  const ParentElement = document.getElementById('container');
+
+  for (let i = 0; i < NoofRows; i++) {
+    for (let j = 0; j < NoofColumns; j++) {
+      const NewElement = document.createElement('button');
+      NewElement.setAttribute("id", "Button"+i+","+j);
+      NewElement.setAttribute("onclick", "Uncover("+i+","+j+")");
+      ParentElement.appendChild(NewElement); 
+      if (i == 0 && j == 0) {
+      }
+    }
+  }
+
+  const NewElement = document.createElement('div');
+  NewElement.setAttribute("id", "messagebar");
+  ParentElement.appendChild(NewElement); 
+
+} 
+
+AddTiles();
+// finish adding in all the tiles dynamically
+
+
+//Function to set the container rows and columns
+function SetContainerRC() {
+  document.getElementById("container").style.gridTemplateColumns = "repeat(" + (NoofColumns + 2) + ", 1fr)"; 
+  document.getElementById("highscorebar").style.gridColumn = (NoofColumns + 1) +" / span 2";
+  document.getElementById("highscorebar").style.gridRow = "1 / span " +(NoofRows - 2);
+
+  document.getElementById("ChangeDifficultyHead").style.gridColumn = (NoofColumns + 1) +" / span 2";
+  document.getElementById("ChangeDifficultyHead").style.gridRow = (NoofRows - 1) + " / span 1";
+
+  document.getElementById("BDifficulty").style.gridColumn = (NoofColumns + 1) +" / span 2";
+  document.getElementById("BDifficulty").style.gridRow = (NoofRows) + " / span 1";
+  document.getElementById("BDifficulty").style.fontSize = "14px";
+  document.getElementById("BDifficulty").setAttribute("onclick", "ChangeDifficulty(DifficultyOptions.Beginner)");
+
+  document.getElementById("IDifficulty").style.gridColumn = (NoofColumns + 1) +" / span 2";
+  document.getElementById("IDifficulty").style.gridRow = (NoofRows + 1) + " / span 1";
+  document.getElementById("IDifficulty").style.fontSize = "14px";
+  document.getElementById("IDifficulty").setAttribute("onclick", "ChangeDifficulty(DifficultyOptions.Intermediate)");
+
+  document.getElementById("EDifficulty").style.gridColumn = (NoofColumns + 1) +" / span 2";
+  document.getElementById("EDifficulty").style.gridRow = (NoofRows + 2) + " / span 1";
+  document.getElementById("EDifficulty").style.fontSize = "14px";
+  document.getElementById("EDifficulty").setAttribute("onclick", "ChangeDifficulty(DifficultyOptions.Expert)");
+
+
+  let TopBarCols = Math.ceil(NoofColumns/3);
+
+  document.getElementById("minesbar").style.gridColumn = "1 / span " + TopBarCols;
+  document.getElementById("startbar").style.gridColumn = (TopBarCols + 1) + " / span " + TopBarCols;
+  document.getElementById("fillerbar").style.gridColumn = 
+   ((TopBarCols *2) + 1) + " / span " + (NoofColumns - (TopBarCols*2));
+ 
+  document.getElementById("messagebar").style.gridColumn = "1 / span " + NoofColumns;
+  document.getElementById("messagebar").style.gridRow = (NoofRows + 2) + " / span 1";
+
+}
+
+SetContainerRC();
+
+//Adding event listener for all buttons
+function AddListeners() {
+  const Buttons = document.querySelectorAll('button');
+
+  Buttons.forEach(button => {
+    button.addEventListener('contextmenu', function(event) {
+      event.preventDefault();
+
+      if (GameOver == false && button.innerHTML == '') {
+        button.style.backgroundColor = 'Gold';
+        button.style.fontSize = "14px";
+        button.innerHTML = 'M';
+        MinesRemaining = MinesRemaining - 1;
+
+        if (MinesRemaining == 0) {
+          CheckWinner();
+          document.getElementById('minesbar').innerHTML = 'Mines: ' + 0;
+        } else {
+          document.getElementById('minesbar').innerHTML = 'Mines: ' + MinesRemaining;
+        }
+
+      } else if (GameOver == false && button.innerHTML == 'M') {
+        button.style.backgroundColor = '#f1f1f1';
+        button.style.fontSize = "20px";
+        button.innerHTML = '';
+        MinesRemaining = MinesRemaining + 1;
+      }
+    });
+  });
+}
+
+AddListeners();
+//end of event listener for all buttons
+
+
+//Initial uncover of edge cells function to start the game 
+function initialUncover() {
+
+  //Sub Function to uncover only the edges that are guaranteed not to be mines.
+  //Slightly easier than using existing uncover function?
+  function UncoverEdges(a,b) {
+  
+    let ButtonRef = "Button" + a + "," + b;
+
+    document.getElementById(ButtonRef).style.backgroundColor = 'DarkGrey';
+    document.getElementById(ButtonRef).innerHTML = MinesArray2D[a][b];
+    document.getElementById(ButtonRef).style.fontSize = "20px";
+
+    ChangeFontColour(MinesArray2D[a][b],ButtonRef);
+  }
+
+  document.getElementById('minesbar').innerHTML = 'Mines: ' + MinesRemaining;
+
+  i = 0;
+
+  for (let j = 0; j < NoofColumns; j++) {
+    UncoverEdges(i,j);
+  }
+
+  i = NoofRows - 1;
+
+  for (let j = 0; j < NoofColumns; j++) {
+    UncoverEdges(i,j);
+  }
+
+  j = 0;
+
+  for (let i = 1; i < NoofRows - 1; i++) {
+    UncoverEdges(i,j);
+  }
+  
+  j = NoofColumns - 1;
+
+  for (let i = 1; i < NoofRows - 1; i++) {
+    UncoverEdges(i,j);
+  }
+
+} // end of initial uncover function
+
+initialUncover(); // call initial uncover function to finish starting the game
+
+
+//StartGame function where GameOver,messagebar is reset
+//This function is called by the startbar button
+//GameSetup is then recalled 
+function StartGame() {
+
+  GameOver = false;
+  document.getElementById('messagebar').innerHTML = '';
+
+
+  GameSetup();
+
+
+
+  for (let i = 0; i < NoofRows; i++) {
+    for (let j = 0; j < NoofColumns; j++) {
+
+        let ButtonID = "Button" + i + "," + j;
+
+        document.getElementById(ButtonID).style.backgroundColor = '#f1f1f1';
+        document.getElementById(ButtonID).style.fontSize = "20px";
+        document.getElementById(ButtonID).innerHTML = '';
+        document.getElementById(ButtonID).style.color = "black"; 
+    }
+  }
+
+  initialUncover();
+
+} // end of StartGame function
+
+
+//Change difficulty function
+  function ChangeDifficulty(A) {
+
+  GameOver = false;
+  document.getElementById('messagebar').innerHTML = '';
+
+  switch (A) {
+    case 1:
+      DifficultySelected = DifficultyOptions.Intermediate;
+      document.getElementById("container").style.width = "1000px"; 
+      break;
+    case 2:
+      DifficultySelected = DifficultyOptions.Expert;
+      document.getElementById("container").style.width = "1500px"; 
+      break;
+    default:
+      DifficultySelected = DifficultyOptions.Beginner;
+      document.getElementById("container").style.width = "800px"; 
+  }
+
+  document.getElementById("highscorebar").innerHTML = "High Scores"
+  GetHighScoreStore();
+
+  let ArrayLength = DifficultyLevels[DifficultySelected].HighScores.length;
+
+  for (let j = 0; j < ArrayLength; j++) {
+    document.getElementById("highscorebar").innerHTML =
+     document.getElementById("highscorebar").innerHTML + "<br><br>" +   
+    DifficultyLevels[DifficultySelected].HighScores[j] + "s";
+  }
+
+  document.getElementById("messagebar").remove();
+
+  for (let i = 0; i < NoofRows; i++) {
+    for (let j = 0; j < NoofColumns; j++) {
+      document.getElementById("Button"+i+","+j).remove();
+    }
+  }
+
+  GameSetup();
+  AddTiles();
+  SetContainerRC();
+
+  for (let i = 0; i < NoofRows; i++) {
+    for (let j = 0; j < NoofColumns; j++) {
+
+        let ButtonID = "Button" + i + "," + j;
+
+        document.getElementById(ButtonID).style.backgroundColor = '#f1f1f1';
+        document.getElementById(ButtonID).style.fontSize = "20px";
+        document.getElementById(ButtonID).innerHTML = '';
+        document.getElementById(ButtonID).style.color = "black"; 
+    }
+  }
+
+  AddListeners();
+  initialUncover();
+
+}//end of change difficulty function
+
+
+//Adding highScore to the score array
+function AddHighScore(time) {
+  let ArrayLength = DifficultyLevels[DifficultySelected].HighScores.length;
+
+  if (ArrayLength > 0) {
+    DifficultyLevels[DifficultySelected].HighScores.sort(function(a, b){return a - b});
+  }
+
+  if (ArrayLength < 5) {
+    DifficultyLevels[DifficultySelected].HighScores.push(String(time));
+    if (ArrayLength > 0) {
+    DifficultyLevels[DifficultySelected].HighScores.sort(function(a, b){return a - b});
+    }
+
+  } else if (DifficultyLevels[DifficultySelected].HighScores[4]>time && DifficultyLevels[DifficultySelected].HighScores.indexOf(String(time)) == -1 ) {
+    DifficultyLevels[DifficultySelected].HighScores.pop();
+    DifficultyLevels[DifficultySelected].HighScores.push(String(time));
+    DifficultyLevels[DifficultySelected].HighScores.sort(function(a, b){return a - b});
+  }
+
+  document.getElementById("highscorebar").innerHTML = "High Scores";
+
+  ArrayLength = DifficultyLevels[DifficultySelected].HighScores.length;
+
+  for (let j = 0; j < ArrayLength; j++) {
+    document.getElementById("highscorebar").innerHTML =
+     document.getElementById("highscorebar").innerHTML + "<br><br>" + DifficultyLevels[DifficultySelected].HighScores[j] + "s";
+  }      
+
+} // end of AddHighScore function
+
+
+// CheckWinner if player has won and logs time taken
+function CheckWinner() {
+
+  let MinesFound = 0;
+
+  for (let i = 0; i < NoofRows; i++) {
+    for (let j = 0; j < NoofColumns; j++) {
+
+        let ButtonID = "Button" + i + "," + j;
+      
+        if (document.getElementById(ButtonID).innerHTML == 'M' && MinesArray2D[i][j] == 9) {
+          MinesFound = MinesFound + 1;
+        }
+
+    }
+  } // end of for loop
+
+  if (MinesFound == MinesToFind) {
+    let FinishTime = performance.now();
+    let TimeTaken = Math.round((FinishTime - StartTime) / 1000);
+    document.getElementById('messagebar').innerHTML = TimeTaken + "s Congratulations! Well Done";
+    AddHighScore(TimeTaken);
+    SetHighScoreStore();
+  } 
+  
+} // end of CheckWinner function
+
+</script>
+
+</body>
+</html>
